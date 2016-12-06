@@ -15,12 +15,15 @@ library(qdap)
 
 #### RUN ONCE
 
-# library(qdap)
 # library(openNLP)
 # library(NLP)
 # 
 # sent_token_annotator <- Maxent_Sent_Token_Annotator()
 # word_token_annotator <- Maxent_Word_Token_Annotator()
+# 
+# person_annotator <- Maxent_Entity_Annotator(kind="person",language="en",model='//Users/admin/Downloads/en-ner-person.bin')
+# org_annotator <- Maxent_Entity_Annotator(kind="organization",language="en",model='//Users/admin/Downloads/en-ner-organization.bin')
+# loc_annotator <- Maxent_Entity_Annotator(kind="location",language="en",model='//Users/admin/Downloads/en-ner-location.bin')
 # 
 # person_annotator <- Maxent_Entity_Annotator(kind="person",language="en",model='/home/nmoniz/TIST/en-ner-person.bin')
 # org_annotator <- Maxent_Entity_Annotator(kind="organization",language="en",model='/home/nmoniz/TIST/en-ner-organization.bin')
@@ -254,15 +257,12 @@ mc.bandari <- function(form,train,test,...) {
   new_train$IDLink <- NULL
   new_test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- svm(form,new_train,...)
-  train.time <- proc.time() - ptm
-  
   p <- predict(m,new_test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   names(p) <- rownames(test)
   eval <- eval.stats("TimesPublishedTwitter ~ .",new_train,new_test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,new_test),preds=p,evaluation=eval)
   res
   
 }
@@ -291,13 +291,11 @@ mc.lm <- function(form,train,test,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- lm(form,train,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -325,13 +323,11 @@ mc.lm_SMOTE <- function(form,train,test,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- lm(form,train,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -359,14 +355,12 @@ mc.lm_UNDER <- function(form,train,test,un,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- lm(form,train)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -394,14 +388,12 @@ mc.lm_OVER <- function(form,train,test,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- lm(form,train)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -429,14 +421,12 @@ mc.lm_IS <- function(form,train,test,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- lm(form,train)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -464,13 +454,11 @@ mc.svm <- function(form,train,test,cost,gamma,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- svm(form,train,cost=cost,gamma=gamma,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -499,13 +487,11 @@ mc.svm_SMOTE <- function(form,train,test,cost,gamma,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- svm(form,train,cost=cost,gamma=gamma,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -534,13 +520,11 @@ mc.svm_UNDER <- function(form,train,test,un,cost,gamma,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- svm(form,train,cost=cost,gamma=gamma,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -569,13 +553,11 @@ mc.svm_OVER <- function(form,train,test,cost,gamma,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- svm(form,train,cost=cost,gamma=gamma,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -604,13 +586,11 @@ mc.svm_IS <- function(form,train,test,cost,gamma,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- svm(form,train,cost=cost,gamma=gamma,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -638,15 +618,13 @@ mc.mars <- function(form,train,test,nk,degree,thresh,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- earth(form,train,nk=nk,degree=degree,thresh=thresh)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -675,15 +653,13 @@ mc.mars_SMOTE <- function(form,train,test,nk,degree,thresh,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
-  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
-  train.time <- proc.time() - ptm
+  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh)
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -712,9 +688,7 @@ mc.mars_UNDER <- function(form,train,test,nk,degree,thresh,un,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
@@ -722,7 +696,7 @@ mc.mars_UNDER <- function(form,train,test,nk,degree,thresh,un,...) {
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -751,9 +725,7 @@ mc.mars_OVER <- function(form,train,test,nk,degree,thresh,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
@@ -761,7 +733,7 @@ mc.mars_OVER <- function(form,train,test,nk,degree,thresh,ov,...) {
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -789,9 +761,7 @@ mc.mars_IS <- function(form,train,test,nk,degree,thresh,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
@@ -799,7 +769,7 @@ mc.mars_IS <- function(form,train,test,nk,degree,thresh,un,ov,...) {
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -827,13 +797,11 @@ mc.rf <- function(form,train,test,mtry,ntree,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -861,13 +829,11 @@ mc.rf_SMOTE <- function(form,train,test,mtry,ntree,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -895,13 +861,11 @@ mc.rf_UNDER <- function(form,train,test,mtry,ntree,un,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -929,13 +893,11 @@ mc.rf_OVER <- function(form,train,test,mtry,ntree,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
@@ -963,149 +925,108 @@ mc.rf_IS <- function(form,train,test,mtry,ntree,un,ov,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  ptm <- proc.time()
   m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
-  train.time <- proc.time() - ptm
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(evaluation=eval,traintime=train.time)
+  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
   res
 }
 
+###FINAL CODE
+
 exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.economy),
-                             Workflow("mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
+                             c(Workflow("mc.lm"),
+                                workflowVariants("mc.lm_SMOTE",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.lm_UNDER",un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.lm_OVER",ov=c(2,3,5,10)),
+                                workflowVariants("mc.lm_IS",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.svm",cost=c(10,150,300),gamma=c(0.01,0.001)),
+                                workflowVariants("mc.svm_SMOTE",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.svm_UNDER",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.svm_OVER",cost=c(10,150,300),gamma=c(0.01,0.001),ov=c(2,3,5,10)),
+                                workflowVariants("mc.svm_IS",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.mars",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001)),
+                                workflowVariants("mc.mars_SMOTE",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.mars_UNDER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.mars_OVER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),ov=c(2,3,5,10)),
+                                workflowVariants("mc.mars_IS",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.rf",mtry=c(5,7),ntree=c(500,750,1500)),
+                                workflowVariants("mc.rf_SMOTE",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.rf_UNDER",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.rf_OVER",mtry=c(5,7),ntree=c(500,750,1500),ov=c(2,3,5,10)),
+                                workflowVariants("mc.rf_IS",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10))),
+                             EstimationTask("totTime",method=MonteCarlo(nReps=5,szTrain=.5,szTest=.25))
 )
 
 exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.microsoft),
-                             Workflow("mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
+                              c(Workflow("mc.lm"),
+                                workflowVariants("mc.lm_SMOTE",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.lm_UNDER",un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.lm_OVER",ov=c(2,3,5,10)),
+                                workflowVariants("mc.lm_IS",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.svm",cost=c(10,150,300),gamma=c(0.01,0.001)),
+                                workflowVariants("mc.svm_SMOTE",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.svm_UNDER",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.svm_OVER",cost=c(10,150,300),gamma=c(0.01,0.001),ov=c(2,3,5,10)),
+                                workflowVariants("mc.svm_IS",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.mars",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001)),
+                                workflowVariants("mc.mars_SMOTE",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.mars_UNDER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.mars_OVER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),ov=c(2,3,5,10)),
+                                workflowVariants("mc.mars_IS",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.rf",mtry=c(5,7),ntree=c(500,750,1500)),
+                                workflowVariants("mc.rf_SMOTE",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                                workflowVariants("mc.rf_UNDER",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8)),
+                                workflowVariants("mc.rf_OVER",mtry=c(5,7),ntree=c(500,750,1500),ov=c(2,3,5,10)),
+                                workflowVariants("mc.rf_IS",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10))),
+                              EstimationTask("totTime",method=MonteCarlo(nReps=5,szTrain=.5,szTest=.25))
 )
 
 exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.obama),
-                             Workflow("mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
+                             c(Workflow("mc.lm"),
+                               workflowVariants("mc.lm_SMOTE",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.lm_UNDER",un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.lm_OVER",ov=c(2,3,5,10)),
+                               workflowVariants("mc.lm_IS",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.svm",cost=c(10,150,300),gamma=c(0.01,0.001)),
+                               workflowVariants("mc.svm_SMOTE",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.svm_UNDER",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.svm_OVER",cost=c(10,150,300),gamma=c(0.01,0.001),ov=c(2,3,5,10)),
+                               workflowVariants("mc.svm_IS",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.mars",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001)),
+                               workflowVariants("mc.mars_SMOTE",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.mars_UNDER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.mars_OVER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),ov=c(2,3,5,10)),
+                               workflowVariants("mc.mars_IS",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.rf",mtry=c(5,7),ntree=c(500,750,1500)),
+                               workflowVariants("mc.rf_SMOTE",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.rf_UNDER",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.rf_OVER",mtry=c(5,7),ntree=c(500,750,1500),ov=c(2,3,5,10)),
+                               workflowVariants("mc.rf_IS",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10))),
+                             EstimationTask("totTime",method=MonteCarlo(nReps=5,szTrain=.5,szTest=.25))
 )
 
 exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.palestine),
-                             Workflow("mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
+                             c(Workflow("mc.lm"),
+                               workflowVariants("mc.lm_SMOTE",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.lm_UNDER",un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.lm_OVER",ov=c(2,3,5,10)),
+                               workflowVariants("mc.lm_IS",un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.svm",cost=c(10,150,300),gamma=c(0.01,0.001)),
+                               workflowVariants("mc.svm_SMOTE",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.svm_UNDER",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.svm_OVER",cost=c(10,150,300),gamma=c(0.01,0.001),ov=c(2,3,5,10)),
+                               workflowVariants("mc.svm_IS",cost=c(10,150,300),gamma=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.mars",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001)),
+                               workflowVariants("mc.mars_SMOTE",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.mars_UNDER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.mars_OVER",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),ov=c(2,3,5,10)),
+                               workflowVariants("mc.mars_IS",nk=c(10,17),degree=c(1,2),thresh=c(0.01,0.001),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.rf",mtry=c(5,7),ntree=c(500,750,1500)),
+                               workflowVariants("mc.rf_SMOTE",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10)),
+                               workflowVariants("mc.rf_UNDER",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8)),
+                               workflowVariants("mc.rf_OVER",mtry=c(5,7),ntree=c(500,750,1500),ov=c(2,3,5,10)),
+                               workflowVariants("mc.rf_IS",mtry=c(5,7),ntree=c(500,750,1500),un=c(.05,.1,.2,.4,.6,.8),ov=c(2,3,5,10))),
+                             EstimationTask("totTime",method=MonteCarlo(nReps=5,szTrain=.5,szTest=.25))
 )
-
-#ECONOMY
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.economy),
-                             c(Workflow("mc.svm",cost=10,gamma=0.001),
-                               Workflow("mc.svm_SMOTE",cost=10,gamma=0.001,un=0.2,ov=2),
-                               Workflow("mc.svm_UNDER",cost=10,gamma=0.001,un=0.2),
-                               Workflow("mc.svm_OVER",cost=10,gamma=0.001,ov=5),
-                               Workflow("mc.svm_IS",cost=10,gamma=0.001,un=0.2,ov=3)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.economy),
-                             c(Workflow("mc.mars",nk=10,degree=1,thresh=0.01),
-                               Workflow("mc.mars_SMOTE",nk=10,degree=2,thresh=0.01,un=0.05,ov=10),
-                               Workflow("mc.mars_UNDER",nk=10,degree=1,thresh=0.01,un=0.2),
-                               Workflow("mc.mars_OVER",nk=10,degree=1,thresh=0.01,ov=3),
-                               Workflow("mc.mars_IS",nk=10,degree=2,thresh=0.01,un=0.2,ov=2)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.economy),
-                             c(Workflow("mc.rf",mtry=7,ntree=1500),
-                               Workflow("mc.rf_SMOTE",mtry=5,ntree=1500,un=0.2,ov=2),
-                               Workflow("mc.rf_UNDER",mtry=5,ntree=500,un=0.2),
-                               Workflow("mc.rf_OVER",mtry=7,ntree=500,ov=5),
-                               Workflow("mc.rf_IS",mtry=5,ntree=1500,un=0.8,ov=10)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-#MICROSOFT
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.microsoft),
-                             c(Workflow("mc.svm",cost=150,gamma=0.001),
-                               Workflow("mc.svm_SMOTE",cost=10,gamma=0.001,un=0.1,ov=2),
-                               Workflow("mc.svm_UNDER",cost=10,gamma=0.001,un=0.1),
-                               Workflow("mc.svm_OVER",cost=10,gamma=0.001,ov=5),
-                               Workflow("mc.svm_IS",cost=10,gamma=0.001,un=0.1,ov=2)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.microsoft),
-                             c(Workflow("mc.mars",nk=10,degree=1,thresh=0.01),
-                               Workflow("mc.mars_SMOTE",nk=10,degree=2,thresh=0.001,un=0.05,ov=10),
-                               Workflow("mc.mars_UNDER",nk=10,degree=1,thresh=0.01,un=0.05),
-                               Workflow("mc.mars_OVER",nk=10,degree=2,thresh=0.001,ov=10)),
-                               Workflow("mc.mars_IS",nk=10,degree=2,thresh=0.01,un=0.05,ov=3),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.microsoft),
-                             c(Workflow("mc.rf",mtry=7,ntree=750),
-                               Workflow("mc.rf_SMOTE",mtry=7,ntree=1500,un=0.2,ov=2),
-                               Workflow("mc.rf_UNDER",mtry=7,ntree=1500,un=0.1),
-                               Workflow("mc.rf_OVER",mtry=7,ntree=750,ov=10)),
-                               Workflow("mc.rf_IS",mtry=7,ntree=1500,un=0.2,ov=5),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-#OBAMA
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.obama),
-                             c(Workflow("mc.svm",cost=10,gamma=0.001),
-                               Workflow("mc.svm_SMOTE",cost=300,gamma=0.01,un=0.6,ov=2),
-                               Workflow("mc.svm_UNDER",cost=10,gamma=0.001,un=0.05),
-                               Workflow("mc.svm_OVER",cost=10,gamma=0.001,ov=3),
-                               Workflow("mc.svm_IS",cost=10,gamma=0.001,un=0.05,ov=5)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.obama),
-                             c(Workflow("mc.mars",nk=10,degree=2,thresh=0.01),
-                               Workflow("mc.mars_SMOTE",nk=10,degree=1,thresh=0.01,un=0.05,ov=2),
-                               Workflow("mc.mars_UNDER",nk=10,degree=1,thresh=0.01,un=0.05),
-                               Workflow("mc.mars_OVER",nk=10,degree=1,thresh=0.01,ov=10),
-                               Workflow("mc.mars_IS",nk=10,degree=1,thresh=0.01,un=0.1,ov=3)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.obama),
-                             c(Workflow("mc.rf",mtry=5,ntree=750),
-                               Workflow("mc.rf_SMOTE",mtry=5,ntree=1500,un=0.05,ov=10),
-                               Workflow("mc.rf_UNDER",mtry=5,ntree=750,un=0.05),
-                               Workflow("mc.rf_OVER",mtry=5,ntree=500,ov=10)),
-                               Workflow("mc.rf_IS",mtry=5,ntree=1500,un=0.05,ov=10),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-#PALESTINE
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.palestine),
-                             c(Workflow("mc.svm",cost=150,gamma=0.001),
-                               Workflow("mc.svm_SMOTE",cost=10,gamma=0.001,un=0.8,ov=10),
-                               Workflow("mc.svm_UNDER",cost=10,gamma=0.001,un=0.1),
-                               Workflow("mc.svm_OVER",cost=10,gamma=0.001,ov=2),
-                               Workflow("mc.svm_IS",cost=10,gamma=0.01,un=0.2,ov=3)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.palestine),
-                             c(Workflow("mc.mars",nk=10,degree=1,thresh=0.001),
-                               Workflow("mc.mars_SMOTE",nk=10,degree=2,thresh=0.01,un=0.8,ov=10),
-                               Workflow("mc.mars_UNDER",nk=10,degree=2,thresh=0.01,un=0.05),
-                               Workflow("mc.mars_OVER",nk=10,degree=2,thresh=0.001,ov=5),
-                               Workflow("mc.mars_IS",nk=10,degree=2,thresh=0.001,un=0.1,ov=2)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TimesPublishedTwitter ~ .,frame_train.headline.palestine),
-                             c(Workflow("mc.rf",mtry=7,ntree=500),
-                               Workflow("mc.rf_SMOTE",mtry=7,ntree=1500,un=0.2,ov=5),
-                               Workflow("mc.rf_UNDER",mtry=7,ntree=1500,un=0.1),
-                               Workflow("mc.rf_OVER",mtry=7,ntree=500,ov=10),
-                               Workflow("mc.rf_IS",mtry=7,ntree=750,un=0.1,ov=5)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-

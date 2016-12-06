@@ -3,30 +3,27 @@
 setwd("")
 
 ###LIBRARIES
+library(uba)
 library(performanceEstimation)
 library(lubridate)
 library(e1071)
 library(DMwR)
-library(uba)
 library(randomForest)
 library(earth)
 library(UBL)
 library(qdap)
-library(openNLP)
-library(NLP)
 
 #### RUN ONCE
 
-sent_token_annotator <- Maxent_Sent_Token_Annotator()
-word_token_annotator <- Maxent_Word_Token_Annotator()
-
-person_annotator <- Maxent_Entity_Annotator(kind="person",language="en",model='//Users/admin/Downloads/en-ner-person.bin')
-org_annotator <- Maxent_Entity_Annotator(kind="organization",language="en",model='//Users/admin/Downloads/en-ner-organization.bin')
-loc_annotator <- Maxent_Entity_Annotator(kind="location",language="en",model='//Users/admin/Downloads/en-ner-location.bin')
-
-person_annotator <- Maxent_Entity_Annotator(kind="person",language="en",model='/home/nmoniz/TIST/en-ner-person.bin')
-org_annotator <- Maxent_Entity_Annotator(kind="organization",language="en",model='/home/nmoniz/TIST/en-ner-organization.bin')
-loc_annotator <- Maxent_Entity_Annotator(kind="location",language="en",model='/home/nmoniz/TIST/en-ner-location.bin')
+# library(openNLP)
+# library(NLP)
+# 
+# sent_token_annotator <- Maxent_Sent_Token_Annotator()
+# word_token_annotator <- Maxent_Word_Token_Annotator()
+# 
+# person_annotator <- Maxent_Entity_Annotator(kind="person",language="en",model='/home/nmoniz/TIST/en-ner-person.bin')
+# org_annotator <- Maxent_Entity_Annotator(kind="organization",language="en",model='/home/nmoniz/TIST/en-ner-organization.bin')
+# loc_annotator <- Maxent_Entity_Annotator(kind="location",language="en",model='/home/nmoniz/TIST/en-ner-location.bin')
 
 #LOAD DATA
 #DATA LOADING
@@ -47,6 +44,31 @@ frame_train.headline.economy <- frame_train.headline.economy[frame_train.headlin
 frame_train.headline.microsoft <- frame_train.headline.microsoft[frame_train.headline.microsoft$TimesPublishedTwitter>0,]
 frame_train.headline.obama <- frame_train.headline.obama[frame_train.headline.obama$TimesPublishedTwitter>0,]
 frame_train.headline.palestine <- frame_train.headline.palestine[frame_train.headline.palestine$TimesPublishedTwitter>0,]
+
+#LOAD RANKINGS AND ADAPT TO DATASET
+# ranktable <- read.csv("Data/RankTable.csv")
+ranktable <- read.csv("RankTable.csv")
+columnames <- colnames(ranktable)
+columnames <- columnames[2:length(columnames)]
+ranktable["TgtDummy"] <- factor(sample(columnames,nrow(ranktable),replace=T),levels=columnames)
+ranktable$Timestamp <- as.POSIXct(ranktable$Timestamp)
+
+ranktable.economy <- read.csv("RankTable_Economy.csv")
+columnames <- colnames(ranktable.economy)
+columnames <- columnames[2:length(columnames)]
+ranktable.economy["TgtDummy"] <- factor(sample(columnames,nrow(ranktable.economy),replace=T),levels=columnames)
+ranktable.microsoft <- read.csv("RankTable_Microsoft.csv")
+columnames <- colnames(ranktable.microsoft)
+columnames <- columnames[2:length(columnames)]
+ranktable.microsoft["TgtDummy"] <- factor(sample(columnames,nrow(ranktable.microsoft),replace=T),levels=columnames)
+ranktable.obama <- read.csv("RankTable_Obama.csv")
+columnames <- colnames(ranktable.obama)
+columnames <- columnames[2:length(columnames)]
+ranktable.obama["TgtDummy"] <- factor(sample(columnames,nrow(ranktable.obama),replace=T),levels=columnames)
+ranktable.palestine <- read.csv("RankTable_Palestine.csv")
+columnames <- colnames(ranktable.palestine)
+columnames <- columnames[2:length(columnames)]
+ranktable.palestine["TgtDummy"] <- factor(sample(columnames,nrow(ranktable.palestine),replace=T),levels=columnames)
 
 
 #EVALUATION
@@ -78,227 +100,13 @@ eval.stats <- function(form,train,test,preds,ph,ls) {
   F2=F2
   
   c(
-    mse=mse, mse_phi=mse_phi, prec=prec,rec=rec,F1=F1
+    rmse=rmse, rmse_phi=rmse_phi, prec=prec,rec=rec,F1=F1
   )
   
 }
 
-#UTIL FOR ONE BUMP
-utilOneBump <- function(form,train,test,preds,PHIs,cf,thr,makePlot) {
-  
-  require(akima)
-  
-  ph <- phi(resp(form,train),PHIs)
-  ph.test <- phi(resp(form,test),PHIs)
-  
-  phi1 <- unique(resp(form,train)[which(ph==min(ph[ph>=thr]))])
-  phi2 <- PHIs$control.pts[4]
-  phi3 <- PHIs$control.pts[7]
-  max.x <- max(preds)
-  max.y <- max(resp(form,test))
-  
-  values <- sort(unique(resp(form,test)))
-  values.df <- data.frame(trues=as.numeric(resp(form,test)),preds=as.numeric(preds))
-  
-  #############
-  #FALSE POSITIVE
-  x <- c(phi1,
-         phi1,
-         (phi1+phi1),
-         max.y,
-         max.y,
-         phi1,
-         (max.y/2),
-         seq(max.y/2,max.y,by=1),
-         seq(max.y/2,max.y,by=1))
-  y <- c(phi1,
-         0,
-         phi1,
-         phi1,
-         0,
-         (phi1/2),
-         0,
-         rep(phi1,length(seq(max.y/2,max.y,by=1))),
-         rep(0,length(seq(max.y/2,max.y,by=1))))
-  u <- c(thr,
-         0, #or 0
-         0,
-         0,
-         -1,
-         0,
-         -1,
-         rep(0,length(seq(max.y/2,max.y,by=1))),
-         rep(-1,length(seq(max.y/2,max.y,by=1))))
-  
-  if(max.x>max.y) {
-    x <- c(x,max.x,max.x,(max.x/2),seq(max.y,max.x,by=1),seq(max.y,max.x,by=1))
-    y <- c(y,phi1,0,0,rep(phi1,length(seq(max.y,max.x,by=1))),rep(0,length(seq(max.y,max.x,by=1))))
-    u <- c(u,0,-1,-1,rep(0,length(seq(max.y,max.x,by=1))),rep(-1,length(seq(max.y,max.x,by=1))))
-  }
-  
-  dat <- data.frame(x,y,u)
-  
-  xo.values <- unique(sort(values.df[values.df$preds>=phi1,]$preds))
-  yo.values <- unique(sort(values.df[values.df$trues<=phi1,]$trues))
-  if(length(xo.values)==0) { if(max.x>max.y) { xo.values <- c(seq(phi1,max.x,by=1)) } else { xo.values <- c(seq(phi1,max.y,by=1)) } }
-  if(length(yo.values)==0) { yo.values <- c(seq(0,phi1,by=1)) }
-  
-  fp <- interp(x,y,u,duplicate="mean",xo=xo.values,yo=yo.values)
-  
-  #FALSE NEGATIVE
-  x <- c(0,
-         0,
-         phi1,
-         phi1,
-         phi1,
-         (phi1/2))
-  y <- c(phi1,
-         max.y,
-         phi1,
-         max.y,
-         (phi1+phi1),
-         phi1)
-  u <- c(0, #or ZERO
-         -1,
-         thr,
-         0,
-         0,
-         0)
-  
-  if(max.x>max.y) {
-    x <- c(x,0,phi1)
-    y <- c(y,max.x,max.x)
-    u <- c(u,-1,0)
-  }
-  
-  dat <- data.frame(x,y,u)
-  
-  xo.values <- unique(sort(values.df[values.df$preds<=phi1,]$preds))
-  yo.values <- unique(sort(values.df[values.df$trues>=phi1,]$trues))
-  if(length(xo.values)==0) { xo.values <- seq(0,phi1,by=1) }
-  if(length(yo.values)==0) { if(max.x>max.y) { yo.values <- seq(phi1,max.x,by=1) } else { yo.values <- seq(phi1,max.y,by=1) } }
-  
-  fn <- interp(x,y,u,duplicate="mean",xo=xo.values,yo=yo.values)
-  
-  #TRUE NEGATIVE
-  phi_aux <- data.frame(points=resp(form,test)[which(ph.test<=thr)], p=ph.test[ph.test<=thr])
-  phi_aux <- phi_aux[with(phi_aux,order(phi_aux$points)),]
-  phi_aux <- unique(phi_aux)
-  
-  x <- c(rep(phi1,length(fp$y)),
-         0,
-         phi_aux$points)
-  
-  y <- c(fp$y,
-         phi1,
-         phi_aux$points)
-  
-  u <- c(fp$z[1,],
-         0,
-         phi_aux$p)
-  
-  dat <- data.frame(x,y,u)
-  
-  xo.values <- unique(sort(values.df[values.df$preds<=phi1,]$preds))
-  yo.values <- unique(sort(values.df[values.df$trues<=phi1,]$trues))
-  if(length(xo.values)==0) { xo.values <- seq(0,phi1,by=1) }
-  if(length(yo.values)==0) { yo.values <- seq(0,phi1,by=1) }
-  
-  tn <- interp(x,y,u,duplicate="mean",xo=xo.values,yo=yo.values)
-  #tn$z[tn$z<0] <- 0
-  
-  #TRUE POSITIVE
-  phi_aux <- data.frame(points=resp(form,test)[which(ph.test>=thr)], p=ph.test[ph.test>=thr])
-  phi_aux <- phi_aux[with(phi_aux,order(phi_aux$points)),]
-  phi_aux <- unique(phi_aux)
-  
-  x <- c(rep(phi1,length(fn$y)),
-         phi_aux$points,
-         seq(phi3,max.y,by=1),
-         max.y,
-         phi1,
-         (max.y/2),
-         seq(max.y/2,max.y,by=1),
-         (phi1+phi1))
-  
-  y <- c(fn$y,
-         phi_aux$points,
-         seq(phi3,max.y,by=1),
-         phi1,
-         max.y,
-         phi1,
-         rep(phi1,length(seq(max.y/2,max.y,by=1))),
-         phi1)
-  
-  u <- c(fn$z[nrow(fn$z),],
-         phi_aux$p,
-         rep(1,length(seq(phi3,max.y,by=1))),
-         0,
-         0,
-         0,
-         rep(0,length(seq(max.y/2,max.y,by=1))),
-         0)
-  
-  if(max.x>max.y) {
-    x <- c(x,max.x,max.x,phi1,seq(max.y,max.x,by=1),seq(max.y,max.x,by=1))
-    y <- c(y,max.x,phi1,max.x,seq(max.y,max.x,by=1),rep(phi1,length(seq(max.y,max.x,by=1))))
-    u <- c(u,1,0,0,rep(1,length(seq(max.y,max.x,by=1))),rep(0,length(seq(max.y,max.x,by=1))))
-  }
-  
-  dat <- data.frame(x,y,u)
-  
-  xo.values <- unique(sort(values.df[values.df$preds>=phi1,]$preds))
-  yo.values <- unique(sort(values.df[values.df$trues>=phi1,]$trues))
-  if(length(xo.values)==0) { if(max.x>max.y) { xo.values <- seq(phi1,max.x,by=1) } else { xo.values <- seq(phi1,max.y,by=1) } }
-  if(length(yo.values)==0) { if(max.x>max.y) { yo.values <- seq(phi1,max.x,by=1) } else { yo.values <- seq(phi1,max.y,by=1) } }
-  
-  tp <- interp(x,y,u,duplicate="mean",xo=xo.values,yo=yo.values)
-  
-  if(any(is.na(tp$z[,1]))) { tp$z[,1] <- fp$z[,ncol(fp$z)] }
-  
-  ####
-  
-  tests <- fp
-  tests$x <- c(tn$x,tp$x)
-  tests$y <- c(tn$y,tp$y)
-  tst.m <- cbind(tn$z,fn$z)
-  tst.m2 <- cbind(fp$z,tp$z)
-  tst <- rbind(tst.m,tst.m2)
-  tests$z <- tst
-  
-  if(any(table(tests$x)>1)) { 
-    tests$z <- tests$z[!duplicated(tests$x),]
-    tests$x <- unique(tests$x)
-  }
-  
-  if(any(table(tests$y)>1)) { 
-    tests$z <- tests$z[,!duplicated(tests$y)]
-    tests$y <- unique(tests$y)
-  }
-  
-  if(makePlot) {
-    image.plot(tests, xlab=expression("hat{y}"), ylab="y")
-    contour(tests,add=TRUE,labcex=1)
-    abline(h=PHIs$control.pts[7],lty=2)
-    abline(v=PHIs$control.pts[7],lty=2)
-  }
-  
-  #####
-  values.df$Utility <- 0
-  for(i in 1:nrow(values.df)) {
-    values.df[i,]$Utility <- tests$z[which(tests$x==values.df[i,]$preds),which(tests$y==values.df[i,]$trues)]
-  }
-  
-  if(any(is.na(values.df$Utility))) {
-    print(values.df[is.na(values.df$Utility),])
-    values.df[is.na(values.df$Utility),]$Utility <- 0
-  }
-  
-  detach("package:akima", unload=TRUE)
-  
-  values.df
-  
-}
+#UTILITY SURFACES
+source("R/UtilitySurfaces.R")
 
 getEntities <- function(data) {
   
@@ -471,175 +279,17 @@ mc.bandari <- function(form,train,test,...) {
   new_test$IDLink <- NULL
   
   m <- svm(form,new_train,...)
+  
   p <- predict(m,new_test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   names(p) <- rownames(test)
-  eval <- eval.stats("TimesPublishedTwitter ~ .",new_train,new_test,p,ph,ls)
-  res <- list(trues=responseValues(form,new_test),preds=p,evaluation=eval)
+  res <- list(trues=responseValues(form,test),preds=p)
   res
   
 }
 
 #PREDICTION MODEL WORKFLOWS
-mc.lm <- function(form,train,test,...) {
-  
-  ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
-  ls <- loss.control(train$TimesPublishedTwitter)
-  
-  sources <- getSources(train, news)
-  
-  src <- sources[match(news[match(train$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  train["SourceRes"] <- src
-  
-  src <- sources[match(news[match(test$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  test["SourceRes"] <- src
-  
-  train <- train[,colSums(train)>0]
-  test <- test[,colnames(train)]
-  
-  train$IDLink <- NULL
-  test$IDLink <- NULL
-  
-  m <- lm(form,train,...)
-  p <- predict(m,test)
-  if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
-  res
-}
-
-mc.lm_SMOTE <- function(form,train,test,...) {
-  
-  ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
-  ls <- loss.control(train$TimesPublishedTwitter)
-  
-  sources <- getSources(train, news)
-  
-  src <- sources[match(news[match(train$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  train["SourceRes"] <- src
-  
-  src <- sources[match(news[match(test$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  test["SourceRes"] <- src
-  
-  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
-  train <- train[,colSums(train)>0]
-  test <- test[,colnames(train)]
-  train$IDLink <- NULL
-  test$IDLink <- NULL
-  
-  m <- lm(form,train,...)
-  p <- predict(m,test)
-  if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
-  res
-}
-
-mc.lm_UNDER <- function(form,train,test,...) {
-  
-  ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
-  ls <- loss.control(train$TimesPublishedTwitter)
-  
-  sources <- getSources(train, news)
-  
-  src <- sources[match(news[match(train$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  train["SourceRes"] <- src
-  
-  src <- sources[match(news[match(test$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  test["SourceRes"] <- src
-  
-  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05))
-  train <- train[,colSums(train)>0]
-  test <- test[,colnames(train)]
-  train$IDLink <- NULL
-  test$IDLink <- NULL
-  
-  m <- lm(form,train)
-  p <- predict(m,test)
-  
-  if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
-  res
-}
-
-mc.lm_OVER <- function(form,train,test,...) {
-  
-  ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
-  ls <- loss.control(train$TimesPublishedTwitter)
-  
-  sources <- getSources(train, news)
-  
-  src <- sources[match(news[match(train$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  train["SourceRes"] <- src
-  
-  src <- sources[match(news[match(test$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  test["SourceRes"] <- src
-  
-  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(1.1))
-  train <- train[,colSums(train)>0]
-  test <- test[,colnames(train)]
-  train$IDLink <- NULL
-  test$IDLink <- NULL
-  
-  m <- lm(form,train)
-  p <- predict(m,test)
-  
-  if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
-  res
-}
-
-mc.lm_IS <- function(form,train,test,...) {
-  
-  ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
-  ls <- loss.control(train$TimesPublishedTwitter)
-  
-  sources <- getSources(train, news)
-  
-  src <- sources[match(news[match(train$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  train["SourceRes"] <- src
-  
-  src <- sources[match(news[match(test$IDLink,news$IDLink),]$Source,sources$Source),]$Mean
-  src[is.na(src)] <- 0
-  src[is.null(src)] <- 0
-  test["SourceRes"] <- src
-  
-  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
-  train <- train[,colSums(train)>0]
-  test <- test[,colnames(train)]
-  train$IDLink <- NULL
-  test$IDLink <- NULL
-  
-  m <- lm(form,train)
-  p <- predict(m,test)
-  
-  if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
-  res
-}
-
-mc.svm <- function(form,train,test,...) {
+mc.svm <- function(form,train,test,cost,gamma,...) {
   
   require(e1071)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -663,15 +313,16 @@ mc.svm <- function(form,train,test,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- svm(form,train,...)
+  m <- svm(form,train,cost=cost,gamma=gamma,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.svm_SMOTE <- function(form,train,test,...) {
+mc.svm_SMOTE <- function(form,train,test,cost,gamma,un,ov,...) {
   
   require(e1071)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -689,21 +340,23 @@ mc.svm_SMOTE <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  #train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un,ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- svm(form,train,...)
+  m <- svm(form,train,cost=cost,gamma=gamma,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.svm_UNDER <- function(form,train,test,...) {
+mc.svm_UNDER <- function(form,train,test,un,cost,gamma,...) {
   
   require(e1071)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -721,21 +374,23 @@ mc.svm_UNDER <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05))
+  #train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05))
+  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- svm(form,train,...)
+  m <- svm(form,train,cost=cost,gamma=gamma,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.svm_OVER <- function(form,train,test,...) {
+mc.svm_OVER <- function(form,train,test,cost,gamma,ov,...) {
   
   require(e1071)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -753,21 +408,23 @@ mc.svm_OVER <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(1.1))
+  #train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(1.1))
+  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- svm(form,train,...)
+  m <- svm(form,train,cost=cost,gamma=gamma,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.svm_IS <- function(form,train,test,...) {
+mc.svm_IS <- function(form,train,test,cost,gamma,un,ov,...) {
   
   require(e1071)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -785,21 +442,23 @@ mc.svm_IS <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  #train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un,ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- svm(form,train,...)
+  m <- svm(form,train,cost=cost,gamma=gamma,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.mars <- function(form,train,test,...) {
+mc.mars <- function(form,train,test,nk,degree,thresh,...) {
   
   require(earth)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -823,17 +482,18 @@ mc.mars <- function(form,train,test,...) {
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- earth(form,train)
+  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh)
+  
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.mars_SMOTE <- function(form,train,test,...) {
+mc.mars_SMOTE <- function(form,train,test,nk,degree,thresh,un,ov,...) {
   
   require(earth)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -851,23 +511,25 @@ mc.mars_SMOTE <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  #train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un,ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- earth(form,train,...)
+  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
+  
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.mars_UNDER <- function(form,train,test,...) {
+mc.mars_UNDER <- function(form,train,test,nk,degree,thresh,un,...) {
   
   require(earth)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -885,25 +547,27 @@ mc.mars_UNDER <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05))
+  #train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05))
+  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- earth(form,train,...)
+  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
+  
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.mars_OVER <- function(form,train,test,...) {
+mc.mars_OVER <- function(form,train,test,nk,degree,thresh,ov,...) {
   
   require(earth)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -921,25 +585,27 @@ mc.mars_OVER <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(1.1))
+  #train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(1.1))
+  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- earth(form,train,...)
+  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
+  
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.mars_IS <- function(form,train,test,...) {
+mc.mars_IS <- function(form,train,test,nk,degree,thresh,un,ov,...) {
   
   require(earth)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -957,25 +623,26 @@ mc.mars_IS <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un,ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
-  test$IDLink <- NULL
+  test$IDLink <- NULL  
   
-  m <- earth(form,train,...)
+  m <- earth(form,train,nk=nk,degree=degree,thresh=thresh,...)
+  
   p <- predict(m,test)
   p <- as.vector(p)
   names(p) <- rownames(test)
   
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
   
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.rf <- function(form,train,test,...) {
+mc.rf <- function(form,train,test,mtry,ntree,...) {
   
   require(randomForest)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -997,17 +664,18 @@ mc.rf <- function(form,train,test,...) {
   test <- test[,colnames(train)]
   
   train$IDLink <- NULL
-  test$IDLink <- NULL
+  test$IDLink <- NULL 
   
-  m <- randomForest(form,train,...)
+  m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.rf_SMOTE <- function(form,train,test,...) {
+mc.rf_SMOTE <- function(form,train,test,mtry,ntree,un,ov,...) {
   
   require(randomForest)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -1025,21 +693,22 @@ mc.rf_SMOTE <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  train <- SmoteRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un,ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- randomForest(form,train,...)
+  m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.rf_UNDER <- function(form,train,test,...) {
+mc.rf_UNDER <- function(form,train,test,mtry,ntree,un,...) {
   
   require(randomForest)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -1057,21 +726,22 @@ mc.rf_UNDER <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05))
+  train <- RandUnderRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- randomForest(form,train,...)
+  m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.rf_OVER <- function(form,train,test,...) {
+mc.rf_OVER <- function(form,train,test,mtry,ntree,ov,...) {
   
   require(randomForest)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -1089,21 +759,22 @@ mc.rf_OVER <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(1.1))
+  train <- RandOverRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- randomForest(form,train,...)
+  m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
-mc.rf_IS <- function(form,train,test,...) {
+mc.rf_IS <- function(form,train,test,mtry,ntree,un,ov,...) {
   
   require(randomForest)
   ph <- phi.control(train$TimesPublishedTwitter, method="extremes", coef=3)
@@ -1121,17 +792,18 @@ mc.rf_IS <- function(form,train,test,...) {
   src[is.null(src)] <- 0
   test["SourceRes"] <- src
   
-  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(0.05,1.1))
+  train <- ImpSampRegress(TimesPublishedTwitter ~ ., train, thr.rel=0.9, C.perc=list(un,ov))
   train <- train[,colSums(train)>0]
   test <- test[,colnames(train)]
   train$IDLink <- NULL
   test$IDLink <- NULL
   
-  m <- randomForest(form,train,...)
+  m <- randomForest(form,train,mtry=mtry,ntree=ntree,...)
+  
   p <- predict(m,test)
   if(length(p[p<1])>0) { p[p<1] <- min(p[p>=1]) }
-  eval <- eval.stats("TimesPublishedTwitter ~ .",train,test,p,ph,ls)
-  res <- list(trues=responseValues(form,test),preds=p,evaluation=eval)
+  
+  res <- list(trues=responseValues(form,test),preds=p)
   res
 }
 
@@ -1421,45 +1093,14 @@ myWF <- function(form,train,test,nws,frm,trainer,...) {
   
 }
 
-#PERFORMANCE ESTIMATION EXPERIMENTS
+source("R/EvalProcedures.R")
 
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.economy),
-                             Workflow("myWF", nws=news, frm=frame_train.headline.economy, trainer="mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
+source("R/WfsExp3.R")
 
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.microsoft),
-                             Workflow("myWF", nws=news, frm=frame_train.headline.microsoft, trainer="mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
+# [EXAMPLES] PERFORMANCE ESTIMATION EXPERIMENTS (USE OPTIMAL PARAMETRIZATION FROM Exps1.R)
 
 exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.obama),
-                             Workflow("myWF", nws=news, frm=frame_train.headline.obama, trainer="mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.palestine),
-                             Workflow("myWF", nws=news, frm=frame_train.headline.palestine, trainer="mc.bandari"),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-###
-
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.economy),
-                             c(Workflow("myWF.time", nws=news),
-                               Workflow("myWF.source", nws=news)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.microsoft),
-                             c(Workflow("myWF.time", nws=news),
-                               Workflow("myWF.source", nws=news)),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.obama),
-                             c(Workflow("myWF.time", nws=news),
-                               Workflow("myWF.source", nws=news)),
+                             Workflow("myWF.bandari", nws=news, frm=frame_train.headline.obama),
                              EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
 )
 
@@ -1471,34 +1112,29 @@ exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.palestine),
 
 ###
 
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.economy),
-                             c(Workflow("myWF", nws=news, frm=frame_train.headline.economy, trainer="mc.mars_SMOTE"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.economy, trainer="mc.mars_UNDER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.economy, trainer="mc.mars_OVER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.economy, trainer="mc.mars_IS")),
-                             EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
-)
-
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.microsoft),
-                             c(Workflow("myWF", nws=news, frm=frame_train.headline.microsoft, trainer="mc.mars_SMOTE"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.microsoft, trainer="mc.mars_UNDER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.microsoft, trainer="mc.mars_OVER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.microsoft, trainer="mc.mars_IS")),
+exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.obama),
+                             c(Workflow("myWF.svm", nws=news, frm=frame_train.headline.microsoft,cost=150,gamma=0.001),
+                               Workflow("myWF.svm_UNDER", nws=news, frm=frame_train.headline.microsoft,cost=10,gamma=0.001,un=0.1),
+                               Workflow("myWF.svm_OVER", nws=news, frm=frame_train.headline.microsoft,cost=10,gamma=0.001,ov=3),
+                               Workflow("myWF.svm_SMOTE", nws=news, frm=frame_train.headline.obama,cost=300,gamma=0.01,un=0.6,ov=2),
+                               Workflow("myWF.svm_IS", nws=news, frm=frame_train.headline.microsoft,cost=10,gamma=0.001,un=0.05,ov=5)),
                              EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
 )
 
 exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.obama),
-                             c(Workflow("myWF", nws=news, frm=frame_train.headline.obama, trainer="mc.mars_SMOTE"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.obama, trainer="mc.mars_UNDER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.obama, trainer="mc.mars_OVER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.obama, trainer="mc.mars_IS")),
+                             c(Workflow("myWF.mars", nws=news, frm=frame_train.headline.obama,nk=10,degree=2,thresh=0.01),
+                               Workflow("myWF.mars_UNDER", nws=news, frm=frame_train.headline.obama,nk=10,degree=1,thresh=0.01,un=0.05),
+                               Workflow("myWF.mars_OVER", nws=news, frm=frame_train.headline.obama,nk=10,degree=1,thresh=0.01,ov=10),
+                               Workflow("myWF.mars_SMOTE", nws=news, frm=frame_train.headline.obama,nk=10,degree=1,thresh=0.01,un=0.05,ov=2),
+                               Workflow("myWF.mars_IS", nws=news, frm=frame_train.headline.obama,nk=10,degree=1,thresh=0.01,un=0.1,ov=3)),
                              EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
 )
 
-exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.palestine),
-                             c(Workflow("myWF", nws=news, frm=frame_train.headline.palestine, trainer="mc.mars_SMOTE"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.palestine, trainer="mc.mars_UNDER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.palestine, trainer="mc.mars_OVER"),
-                               Workflow("myWF", nws=news, frm=frame_train.headline.palestine, trainer="mc.mars_IS")),
+exp <- performanceEstimation(PredTask(TgtDummy ~ .,ranktable.obama),
+                             c(Workflow("myWF.rf", nws=news, frm=frame_train.headline.obama,mtry=5,ntree=750),
+                               Workflow("myWF.rf_UNDER", nws=news, frm=frame_train.headline.obama,mtry=5,ntree=750,un=0.05),
+                               Workflow("myWF.rf_OVER", nws=news, frm=frame_train.headline.obama,mtry=5,ntree=500,ov=10),
+                               Workflow("myWF.rf_SMOTE", nws=news, frm=frame_train.headline.obama,mtry=5,ntree=1500,un=0.05,ov=10),
+                               Workflow("myWF.rf_IS", nws=news, frm=frame_train.headline.obama,mtry=5,ntree=1500,un=0.05,ov=10)),
                              EstimationTask("totTime",method=MonteCarlo(nReps=50,szTrain=.5,szTest=.25))
 )
